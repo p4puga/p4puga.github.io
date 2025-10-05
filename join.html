@@ -35,29 +35,38 @@ const firebaseConfig = {
   storageBucket: "sigmagame-9858a.firebasestorage.app",
   messagingSenderId: "305980813593",
   appId: "1:305980813593:web:ed25bd118d2b29ba595588",
-  measurementId: "G-PN90HB388K"
+  measurementId: "G-PN90HB388K",
+  databaseURL: "https://sigmagame-9858a-default-rtdb.europe-west1.firebasedatabase.app/"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const header = document.getElementById('header');
-const username = localStorage.getItem('username') || '{Username}';
-header.textContent = `SigmaGame - ${username}`;
+document.addEventListener('DOMContentLoaded', () => {
+  const header = document.getElementById('header');
+  const username = localStorage.getItem('username');
+  header.textContent = `SigmaGame - ${username || '{Username}'}`;
 
-document.querySelector('.join').addEventListener('click', async () => {
-  const roomID = document.getElementById('roomID').value.trim().toUpperCase();
-  if (!roomID) return alert('Enter a Room ID!');
-
-  const snapshot = await get(ref(db, 'rooms/' + roomID));
-  if (snapshot.exists()) {
-    const data = snapshot.val();
-    if (!data.users.includes(username)) data.users.push(username);
-    await update(ref(db, 'rooms/' + roomID), data);
-    window.location.href = `room.html?roomID=${roomID}&username=${username}`;
-  } else {
-    alert('Room not found!');
-  }
+  document.querySelector('.join').addEventListener('click', async () => {
+    const roomID = document.getElementById('roomID').value.trim().toUpperCase();
+    if (!roomID) return alert('Enter a Room ID!');
+    try {
+      const snap = await get(ref(db, `rooms/${roomID}`));
+      if (!snap.exists()) {
+        alert('Room not found!');
+        return;
+      }
+      const data = snap.val();
+      if (!Array.isArray(data.users)) data.users = [];
+      if (!data.users.includes(username)) data.users.push(username);
+      await update(ref(db, `rooms/${roomID}`), data);
+      console.log('Joined room', roomID);
+      window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+    } catch (err) {
+      console.error('Join error:', err);
+      alert('Błąd podczas dołączania: ' + (err.message || err));
+    }
+  });
 });
 </script>
 

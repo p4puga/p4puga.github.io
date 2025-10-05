@@ -54,7 +54,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
@@ -63,48 +63,78 @@ const firebaseConfig = {
   storageBucket: "sigmagame-9858a.firebasestorage.app",
   messagingSenderId: "305980813593",
   appId: "1:305980813593:web:ed25bd118d2b29ba595588",
-  measurementId: "G-PN90HB388K"
+  measurementId: "G-PN90HB388K",
+  databaseURL: "https://sigmagame-9858a-default-rtdb.europe-west1.firebasedatabase.app/"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const urlParams = new URLSearchParams(window.location.search);
-const roomID = urlParams.get('roomID');
-const username = urlParams.get('username');
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomID = params.get('roomID');
+  const username = params.get('username') || localStorage.getItem('username');
 
-document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
-
-const chatroom = document.getElementById('chatroom');
-const playerList = document.getElementById('playerList');
-const messageInput = document.getElementById('message');
-const sendBtn = document.getElementById('sendBtn');
-
-// aktualizacja listy graczy i wiadomości w czasie rzeczywistym
-onValue(ref(db, 'rooms/' + roomID), (snapshot) => {
-  if (!snapshot.exists()) return;
-  const data = snapshot.val();
-  chatroom.innerHTML = data.messages.map(msg => `<p><strong>${msg.user}:</strong> ${msg.text}</p>`).join('');
-  playerList.innerHTML = data.users.map(user => `<div class="player"><span>${user}</span></div>`).join('');
-});
-
-sendBtn.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', e => {
-  if (e.key === 'Enter') sendMessage();
-});
-
-async function sendMessage() {
-  const text = messageInput.value.trim();
-  if (!text) return;
-  const snapshot = await get(ref(db, 'rooms/' + roomID));
-  if (snapshot.exists()) {
-    const data = snapshot.val();
-    data.messages.push({ user: username, text });
-    await update(ref(db, 'rooms/' + roomID), data);
-    messageInput.value = '';
+  if (!roomID) {
+    alert('Brak roomID w URL');
+    return;
   }
+  document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
+
+  const chatroom = document.getElementById('chatroom');
+  const playerList = document.getElementById('playerList');
+  const messageInput = document.getElementById('message');
+  const sendBtn = document.getElementById('sendBtn');
+
+  // realtime
+  onValue(ref(db, `rooms/${roomID}`), (snapshot) => {
+    if (!snapshot.exists()) {
+      console.warn('Room not found on DB (maybe deleted)', roomID);
+      chatroom.innerHTML = '<p>Room not found.</p>';
+      playerList.innerHTML = '';
+      return;
+    }
+    const data = snapshot.val();
+    const messages = Array.isArray(data.messages) ? data.messages : [];
+    chatroom.innerHTML = messages.map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('');
+    playerList.innerHTML = (Array.isArray(data.users) ? data.users : []).map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`).join('');
+    chatroom.scrollTop = chatroom.scrollHeight;
+  }, (err) => {
+    console.error('onValue error:', err);
+  });
+
+  sendBtn.addEventListener('click', sendMessage);
+  messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+
+  async function sendMessage() {
+    const text = messageInput.value.trim();
+    if (!text) return;
+    try {
+      const snap = await get(ref(db, `rooms/${roomID}`));
+      if (!snap.exists()) {
+        alert('Room not found (DB).');
+        return;
+      }
+      const data = snap.val();
+      if (!Array.isArray(data.messages)) data.messages = [];
+      data.messages.push({ user: username, text });
+      await update(ref(db, `rooms/${roomID}`), data);
+      messageInput.value = '';
+    } catch (err) {
+      console.error('sendMessage error:', err);
+      alert('Błąd wysyłania wiadomości: ' + (err.message || err));
+    }
+  }
+});
+
+// mała funkcja do ochrony przed XSS w czacie
+function escapeHtml(str = '') {
+  return String(str).replace(/[&<>"'`=\/]/g, s => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
+  }[s]));
 }
 </script>
+
 
 </body>
 </html>

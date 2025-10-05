@@ -28,15 +28,12 @@ const firebaseConfig = {
   storageBucket: "sigmagame-9858a.firebasestorage.app",
   messagingSenderId: "305980813593",
   appId: "1:305980813593:web:ed25bd118d2b29ba595588",
-  measurementId: "G-PN90HB388K"
+  measurementId: "G-PN90HB388K",
+  databaseURL: "https://sigmagame-9858a-default-rtdb.europe-west1.firebasedatabase.app/"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-
-const header = document.getElementById('header');
-const username = localStorage.getItem('username') || '{Username}';
-header.textContent = `SigmaGame - ${username}`;
 
 function generateRoomID() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -47,22 +44,34 @@ function generateRoomID() {
   return id;
 }
 
-document.querySelector('.create').addEventListener('click', async () => {
-  const roomID = generateRoomID();
+document.addEventListener('DOMContentLoaded', () => {
+  const header = document.getElementById('header');
   const username = localStorage.getItem('username');
+  if (!username) {
+    alert('Brak username w localStorage. Wróć do index.html i ustaw nick.');
+    window.location.href = 'index.html';
+    return;
+  }
+  header.textContent = `SigmaGame - ${username}`;
 
-  await set(ref(db, 'rooms/' + roomID), {
-    users: [username],
-    messages: []
+  document.querySelector('.create').addEventListener('click', async () => {
+    const roomID = generateRoomID();
+    try {
+      await set(ref(db, `rooms/${roomID}`), { users: [username], messages: [] });
+      console.log('Created room', roomID);
+      window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+    } catch (err) {
+      console.error('Error creating room:', err);
+      alert('Błąd tworzenia pokoju: ' + (err.message || err));
+    }
   });
 
-  window.location.href = `room.html?roomID=${roomID}&username=${username}`;
-});
-
-document.querySelector('.join').addEventListener('click', () => {
-  window.location.href = 'join.html';
+  document.querySelector('.join').addEventListener('click', () => {
+    window.location.href = 'join.html';
+  });
 });
 </script>
+
 
 
 </body>
