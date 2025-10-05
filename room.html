@@ -52,107 +52,59 @@
 </main>
 <footer><p>©2025 SigmaGame BETA</p></footer>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
+  authDomain: "sigmagame-9858a.firebaseapp.com",
+  projectId: "sigmagame-9858a",
+  storageBucket: "sigmagame-9858a.firebasestorage.app",
+  messagingSenderId: "305980813593",
+  appId: "1:305980813593:web:ed25bd118d2b29ba595588",
+  measurementId: "G-PN90HB388K"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 const urlParams = new URLSearchParams(window.location.search);
-const roomID = urlParams.get('roomID') || 'defaultRoom';
-const username = urlParams.get('username') || 'Guest';
+const roomID = urlParams.get('roomID');
+const username = urlParams.get('username');
 
-// Lista avatarów na serwerze
-const avatarList = [
-    'avatars/1.jpg',
-    'avatars/2.jpg',
-    'avatars/3.jpg',
-    'avatars/4.jpg',
-    'avatars/5.jpg',
-    'avatars/6.jpg',
-    'avatars/7.jpg',
-    'avatars/8.jpg',
-    'avatars/9.jpg'
-];
-
-// Funkcja losująca avatar dla gracza
-function assignAvatar(user) {
-    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
-    if(!rooms[roomID].players) rooms[roomID].players = {};
-    if(!rooms[roomID].players[user]) {
-        const avatar = avatarList[Math.floor(Math.random() * avatarList.length)];
-        rooms[roomID].players[user] = avatar;
-        localStorage.setItem('rooms', JSON.stringify(rooms));
-    }
-    return rooms[roomID].players[user];
-}
-
-// Dołączenie gracza do pokoju
-function joinRoom() {
-    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
-    if(!rooms[roomID]) rooms[roomID] = {messages: [], players: {}};
-    assignAvatar(username);
-}
-
-// Aktualizacja widoku czatu i listy graczy
-function updateRoomView() {
-    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
-    const room = rooms[roomID];
-    if(!room) return;
-
-    const chatroom = document.getElementById('chatroom');
-    const isAtBottom = chatroom.scrollTop + chatroom.clientHeight >= chatroom.scrollHeight - 10;
-    chatroom.innerHTML = room.messages.map(msg => {
-        // jeśli avatar nie istnieje dla jakiegoś gracza (awaryjnie)
-        if(!room.players[msg.user]) {
-            room.players[msg.user] = avatarList[Math.floor(Math.random() * avatarList.length)];
-            localStorage.setItem('rooms', JSON.stringify(rooms));
-        }
-        return `<p><img src="${room.players[msg.user]}"> <strong>${msg.user}:</strong> ${msg.text}</p>`;
-    }).join('');
-    if(isAtBottom) chatroom.scrollTop = chatroom.scrollHeight;
-
-    const playerList = document.getElementById('playerList');
-    playerList.innerHTML = Object.entries(room.players).map(([user, avatar]) =>
-        `<div class="player"><img src="${avatar}"><span>${user}</span></div>`
-    ).join('');
-}
-
-// Wysyłanie wiadomości
-function sendMessage() {
-    const messageInput = document.getElementById('message');
-    const text = messageInput.value.trim();
-    if(!text) return;
-    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
-    rooms[roomID].messages.push({user: username, text});
-    localStorage.setItem('rooms', JSON.stringify(rooms));
-    messageInput.value = '';
-    updateRoomView();
-}
-
-// Usunięcie gracza po zamknięciu karty
-window.addEventListener('beforeunload', () => {
-    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
-    if(rooms[roomID] && rooms[roomID].players[username]) {
-        delete rooms[roomID].players[username];
-        localStorage.setItem('rooms', JSON.stringify(rooms));
-    }
-});
-
-// Obsługa przycisku i enter
-document.getElementById('sendBtn').addEventListener('click', sendMessage);
-document.getElementById('message').addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(); });
-
-// Nagłówek pokoju
 document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
 
-// Start
-joinRoom();
-updateRoomView();
+const chatroom = document.getElementById('chatroom');
+const playerList = document.getElementById('playerList');
+const messageInput = document.getElementById('message');
+const sendBtn = document.getElementById('sendBtn');
 
-// Odświeżanie co 1 sekundę
-setInterval(() => {
-    joinRoom();
-    updateRoomView();
-}, 1000);
+// aktualizacja listy graczy i wiadomości w czasie rzeczywistym
+onValue(ref(db, 'rooms/' + roomID), (snapshot) => {
+  if (!snapshot.exists()) return;
+  const data = snapshot.val();
+  chatroom.innerHTML = data.messages.map(msg => `<p><strong>${msg.user}:</strong> ${msg.text}</p>`).join('');
+  playerList.innerHTML = data.users.map(user => `<div class="player"><span>${user}</span></div>`).join('');
+});
 
-// Nasłuchiwanie zmian w localStorage w innych kartach
-window.addEventListener('storage', updateRoomView);
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', e => {
+  if (e.key === 'Enter') sendMessage();
+});
+
+async function sendMessage() {
+  const text = messageInput.value.trim();
+  if (!text) return;
+  const snapshot = await get(ref(db, 'rooms/' + roomID));
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+    data.messages.push({ user: username, text });
+    await update(ref(db, 'rooms/' + roomID), data);
+    messageInput.value = '';
+  }
+}
 </script>
+
 </body>
 </html>

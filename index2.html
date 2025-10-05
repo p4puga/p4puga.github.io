@@ -17,34 +17,53 @@
 <p>©2025 SigmaGame BETA</p>
 </footer>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
+  authDomain: "sigmagame-9858a.firebaseapp.com",
+  projectId: "sigmagame-9858a",
+  storageBucket: "sigmagame-9858a.firebasestorage.app",
+  messagingSenderId: "305980813593",
+  appId: "1:305980813593:web:ed25bd118d2b29ba595588",
+  measurementId: "G-PN90HB388K"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 const header = document.getElementById('header');
-// odczyt username z localStorage
 const username = localStorage.getItem('username') || '{Username}';
 header.textContent = `SigmaGame - ${username}`;
 
 function generateRoomID() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let id = '';
-    for (let i=0; i<5; i++) {
-        id += chars.charAt(Math.floor(Math.random()*chars.length));
-    }
-    return id;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id = '';
+  for (let i = 0; i < 5; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
 }
 
-document.querySelector('.create').addEventListener('click', () => {
-    const roomID = generateRoomID();
-    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
-    rooms[roomID] = {users:[username], messages:[]};
-    localStorage.setItem('rooms', JSON.stringify(rooms));
-    window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+document.querySelector('.create').addEventListener('click', async () => {
+  const roomID = generateRoomID();
+  const username = localStorage.getItem('username');
+
+  await set(ref(db, 'rooms/' + roomID), {
+    users: [username],
+    messages: []
+  });
+
+  window.location.href = `room.html?roomID=${roomID}&username=${username}`;
 });
 
-// teraz Join Room przenosi do join.html
 document.querySelector('.join').addEventListener('click', () => {
-    window.location.href = 'join.html';
+  window.location.href = 'join.html';
 });
 </script>
+
 
 </body>
 </html>
