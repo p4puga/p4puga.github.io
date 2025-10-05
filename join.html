@@ -20,21 +20,27 @@
     <section class="join">Join room</section>
 </div>
 </main>
-<footer><p>©2025 SigmaGame BETA</p></footer>
+<footer>
+<p>©2025 SigmaGame BETA</p>
+</footer>
 
-<script type="module">
-import { db, ref, get, update } from './firebase.js';
-
+<script>
+const header = document.getElementById('header');
+// Odczytanie username z localStorage
 const username = localStorage.getItem('username') || '{Username}';
-document.getElementById('header').textContent = `SigmaGame - ${username}`;
+header.textContent = `SigmaGame - ${username}`;
 
-document.querySelector('.join').addEventListener('click', async () => {
+document.querySelector('.join').addEventListener('click', () => {
     const roomID = document.getElementById('roomID').value.trim().toUpperCase();
     if(!roomID) return alert('Enter a Room ID!');
 
-    const roomSnap = await get(ref(db, 'rooms/' + roomID));
-    if(roomSnap.exists()) {
-        await update(ref(db, 'rooms/' + roomID + '/players'), { [username]: 'avatars/1.jpg' });
+    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
+
+    if(rooms[roomID]) {
+        if(!rooms[roomID].users.includes(username)) {
+            rooms[roomID].users.push(username);
+        }
+        localStorage.setItem('rooms', JSON.stringify(rooms));
         window.location.href = `room.html?roomID=${roomID}&username=${username}`;
     } else {
         alert('Room not found!');

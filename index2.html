@@ -17,32 +17,34 @@
 <p>©2025 SigmaGame BETA</p>
 </footer>
 
-<script type="module">
-import { db, ref, set } from './firebase.js';
-
+<script>
 const header = document.getElementById('header');
+// odczyt username z localStorage
 const username = localStorage.getItem('username') || '{Username}';
 header.textContent = `SigmaGame - ${username}`;
 
 function generateRoomID() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let id = '';
-    for (let i=0; i<5; i++) id += chars.charAt(Math.floor(Math.random()*chars.length));
+    for (let i=0; i<5; i++) {
+        id += chars.charAt(Math.floor(Math.random()*chars.length));
+    }
     return id;
 }
 
-document.querySelector('.create').addEventListener('click', async () => {
+document.querySelector('.create').addEventListener('click', () => {
     const roomID = generateRoomID();
-    await set(ref(db, 'rooms/' + roomID), {
-        players: { [username]: 'avatars/1.jpg' },
-        messages: []
-    });
+    let rooms = JSON.parse(localStorage.getItem('rooms') || '{}');
+    rooms[roomID] = {users:[username], messages:[]};
+    localStorage.setItem('rooms', JSON.stringify(rooms));
     window.location.href = `room.html?roomID=${roomID}&username=${username}`;
 });
 
+// teraz Join Room przenosi do join.html
 document.querySelector('.join').addEventListener('click', () => {
     window.location.href = 'join.html';
 });
 </script>
+
 </body>
 </html>

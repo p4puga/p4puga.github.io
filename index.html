@@ -28,7 +28,9 @@
 document.querySelector('.play').addEventListener('click', () => {
     const username = document.getElementById('username').value.trim();
     if(!username) return alert('Enter a username!');
+    // zapis username w localStorage
     localStorage.setItem('username', username);
+    // przejście do index.html
     window.location.href = 'index2.html';
 });
 </script>
