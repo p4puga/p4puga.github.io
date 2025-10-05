@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="pajak.webp">
+<title>SigmaGame</title>
+</head>
+<body>
+<header><h1 id="header">SigmaGame - {Username}</h1></header>
+<main>
+    <section class="create">Create room</section>
+    <section class="join">Join room</section>
+</main>
+<footer>
+<p>©2025 SigmaGame BETA</p>
+</footer>
+
+<script type="module">
+import { db, ref, set } from './firebase.js';
+
+const header = document.getElementById('header');
+const username = localStorage.getItem('username') || '{Username}';
+header.textContent = `SigmaGame - ${username}`;
+
+function generateRoomID() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let id = '';
+    for (let i=0; i<5; i++) id += chars.charAt(Math.floor(Math.random()*chars.length));
+    return id;
+}
+
+document.querySelector('.create').addEventListener('click', async () => {
+    const roomID = generateRoomID();
+    await set(ref(db, 'rooms/' + roomID), {
+        players: { [username]: 'avatars/1.jpg' },
+        messages: []
+    });
+    window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+});
+
+document.querySelector('.join').addEventListener('click', () => {
+    window.location.href = 'join.html';
+});
+</script>
+</body>
+</html>

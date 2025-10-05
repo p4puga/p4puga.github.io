@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style2.css">
+<link rel="icon" type="image/png" href="pajak.webp">
+<title>SigmaGame Room</title>
+</head>
+<body>
+<header><h1 id="roomHeader">SigmaGame</h1></header>
+<main>
+<section class="game">
+    <h2>Gracze</h2>
+    <div class="player-list" id="playerList"></div>
+</section>
+<section class="chat">
+    <div class="Chatting"><p>Chat</p></div>
+    <div class="chatroom" id="chatroom"></div>
+    <input type="text" id="message" placeholder="Type a message">
+    <button id="sendBtn">Send</button>
+</section>
+</main>
+<footer><p>©2025 SigmaGame BETA</p></footer>
+
+<script type="module">
+import { db, ref, push, onValue, update, remove } from './firebase.js';
+
+const urlParams = new URLSearchParams(window.location.search);
+const roomID = urlParams.get('roomID');
+const username = urlParams.get('username');
+
+const roomRef = ref(db, 'rooms/' + roomID);
+const playersRef = ref(db, 'rooms/' + roomID + '/players');
+const messagesRef = ref(db, 'rooms/' + roomID + '/messages');
+
+const avatarList = [
+  'avatars/1.jpg','avatars/2.jpg','avatars/3.jpg','avatars/4.jpg',
+  'avatars/5.jpg','avatars/6.jpg','avatars/7.jpg','avatars/8.jpg','avatars/9.jpg'
+];
+const avatar = avatarList[Math.floor(Math.random() * avatarList.length)];
+
+async function joinRoom() {
+  await update(playersRef, { [username]: avatar });
+}
+
+window.addEventListener('beforeunload', () => {
+  remove(ref(db, `rooms/${roomID}/players/${username}`));
+});
+
+onValue(messagesRef, snapshot => {
+  const chatroom = document.getElementById('chatroom');
+  chatroom.innerHTML = '';
+  snapshot.forEach(msgSnap => {
+    const msg = msgSnap.val();
+    chatroom.innerHTML += `<p><img src="${msg.avatar}"> <strong>${msg.user}:</strong> ${msg.text}</p>`;
+  });
+  chatroom.scrollTop = chatroom.scrollHeight;
+});
+
+onValue(playersRef, snapshot => {
+  const playerList = document.getElementById('playerList');
+  playerList.innerHTML = '';
+  snapshot.forEach(userSnap => {
+    const user = userSnap.key;
+    const userAvatar = userSnap.val();
+    playerList.innerHTML += `<div class="player"><img src="${userAvatar}"><span>${user}</span></div>`;
+  });
+});
+
+document.getElementById('sendBtn').addEventListener('click', async () => {
+  const messageInput = document.getElementById('message');
+  const text = messageInput.value.trim();
+  if(!text) return;
+  await push(messagesRef, { user: username, text, avatar });
+  messageInput.value = '';
+});
+
+document.getElementById('message').addEventListener('keypress', e => {
+  if(e.key==='Enter') document.getElementById('sendBtn').click();
+});
+
+document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
+
+joinRoom();
+</script>
+</body>
+</html>

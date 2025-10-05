@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style3.css">
+<link rel="icon" type="image/png" href="pajak.webp">
+<title>SigmaGame</title>
+</head>
+<body>
+<header><h1 id="header">SigmaGame - {Username}</h1></header>
+<main>
+<div class="actions">
+    <section class="username">
+        <div class="input-group">
+            <input type="text" id="roomID" placeholder=" " />
+            <label for="roomID">Room ID</label>
+        </div>
+    </section>
+    <section class="join">Join room</section>
+</div>
+</main>
+<footer><p>©2025 SigmaGame BETA</p></footer>
+
+<script type="module">
+import { db, ref, get, update } from './firebase.js';
+
+const username = localStorage.getItem('username') || '{Username}';
+document.getElementById('header').textContent = `SigmaGame - ${username}`;
+
+document.querySelector('.join').addEventListener('click', async () => {
+    const roomID = document.getElementById('roomID').value.trim().toUpperCase();
+    if(!roomID) return alert('Enter a Room ID!');
+
+    const roomSnap = await get(ref(db, 'rooms/' + roomID));
+    if(roomSnap.exists()) {
+        await update(ref(db, 'rooms/' + roomID + '/players'), { [username]: 'avatars/1.jpg' });
+        window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+    } else {
+        alert('Room not found!');
+    }
+});
+</script>
+</body>
+</html>

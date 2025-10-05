@@ -1,0 +1,173 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: sans-serif;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: radial-gradient(circle, rgba(255, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 100%);
+}
+
+header {
+    background-color: black;
+    color: white;
+    text-align: center;
+    padding: 10px;
+}
+
+main {
+    display: flex;
+    flex: 1;
+}
+
+.game {
+    width: 58%;
+    margin: 20px auto;
+    padding: 20px;
+    background: rgba(255,255,0,0.31);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    backdrop-filter: blur(5.8px);
+    -webkit-backdrop-filter: blur(5.8px);
+    border: 1px solid rgba(0,0,0,1);
+    height: auto;
+}
+
+.chat {
+    width: 38%;
+    margin: 20px auto;
+    padding: 20px;
+    background: rgba(255,128,0,0.31);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    backdrop-filter: blur(5.8px);
+    -webkit-backdrop-filter: blur(5.8px);
+    border: 1px solid rgba(0,0,0,1);
+    height: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.Chatting {
+    background: rgba(128, 0, 255, 0.31);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    backdrop-filter: blur(5.8px);
+    -webkit-backdrop-filter: blur(5.8px);
+    border: 1px solid rgba(0,0,0,1);
+    color: white;
+    text-align: center;
+    font-size: 40px;
+}
+
+.chatroom {
+    background: rgba(0, 255, 55, 0.31);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    backdrop-filter: blur(5.8px);
+    -webkit-backdrop-filter: blur(5.8px);
+    border: 1px solid rgba(0,0,0,1);
+    color: white;
+    font-size: 20px;
+    flex: 1;
+    margin-top: 10px;
+    padding: 10px;
+    overflow-y: auto;
+    max-height: 780px;
+}
+
+/* Stylowy scrollbar dla Webkit */
+.chatroom::-webkit-scrollbar {
+    width: 10px;
+}
+.chatroom::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+}
+.chatroom::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 10px;
+}
+.chatroom::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.6);
+}
+
+/* Firefox scrollbar */
+.chatroom {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.3) rgba(0,0,0,0.2);
+}
+
+#message {
+    margin-top:10px;
+    padding:10px;
+    font-size:18px;
+    border-radius:8px;
+    border:none;
+    flex:0;
+}
+
+#sendBtn {
+    margin-top:10px;
+    padding:10px;
+    font-size:18px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+}
+
+footer {
+    background-color: black;
+    color: white;
+    text-align: center;
+    padding: 10px;
+}
+
+/* Czat z avatarami */
+.chatroom p {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 5px 0;
+}
+
+.chatroom img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+}
+
+/* Lista graczy poziomo */
+.player-list {
+    display: flex;
+    flex-direction: row; /* poziomo */
+    gap: 10px;           /* odstęp między graczami */
+    padding: 5px;
+    overflow-x: auto;    /* przewijanie w poziomie */
+    border: 1px solid rgba(0,0,0,0.2);
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.1);
+    align-items: center;
+    height: 60px;        /* wysokość listy graczy */
+}
+
+/* Pojedynczy gracz */
+.player {
+    display: flex;
+    flex-direction: column; /* avatar + nick pod spodem */
+    align-items: center;
+    gap: 3px;
+    min-width: 50px;     /* minimalna szerokość */
+    text-align: center;
+    font-size: 12px;
+}
+
+.player img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
