@@ -67,39 +67,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
 
-    // Dodaj użytkownika jako klucz w users
+    // Dodaj użytkownika
     await update(usersRef, { [username]: true });
 
     // onDisconnect usuwa użytkownika przy wyjściu
     onDisconnect(ref(db, `rooms/${roomID}/users/${username}`)).remove();
 
     // Nasłuchiwanie zmian w pokoju
-    onValue(roomRef, snapshot => {
+    onValue(roomRef, async snapshot => {
         if (!snapshot.exists()) {
             chatroom.innerHTML = '<p>Pokój został usunięty.</p>';
             playerList.innerHTML = '';
             return;
         }
 
-        const data = snapshot.val();
+        const data = snapshot.val() || {};
         const users = data.users || {};
         const messages = data.messages || [];
 
-        // Lista graczy
+        // Wyświetlanie graczy
         playerList.innerHTML = Object.keys(users)
-            .map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`).join('');
+            .map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`)
+            .join('');
 
-        // Czat
-        chatroom.innerHTML = Array.isArray(messages)
-            ? messages.map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('')
-            : Object.values(messages).map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('');
-
+        // Wyświetlanie wiadomości
+        chatroom.innerHTML = messages.map(msg =>
+            `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`
+        ).join('');
         chatroom.scrollTop = chatroom.scrollHeight;
 
-        // Usuń pokój, jeśli nie ma graczy
+        // Automatyczne usuwanie pokoju, jeśli nie ma graczy
         if (Object.keys(users).length === 0) {
-            remove(roomRef);
-            console.log('Pokój usunięty, brak graczy.');
+            remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
         }
     });
 
@@ -110,24 +109,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
-
         const snap = await get(roomRef);
-        const data = snap.exists() ? snap.val() : {};
-        data.messages = data.messages || [];
-
-        if (Array.isArray(data.messages)) {
-            data.messages.push({ user: username, text });
-        } else {
-            const key = Date.now();
-            data.messages[key] = { user: username, text };
-        }
-
+        if (!snap.exists()) return;
+        const data = snap.val();
+        if (!data.messages) data.messages = [];
+        data.messages.push({ user: username, text });
         await update(roomRef, { messages: data.messages });
         messageInput.value = '';
     }
 });
 
-// Funkcja XSS
+// Funkcja ochrony przed XSS
 function escapeHtml(str = '') {
     return String(str).replace(/[&<>"'`=\/]/g, s => ({
         '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
