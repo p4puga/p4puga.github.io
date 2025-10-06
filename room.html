@@ -53,7 +53,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const WORDS = ["rękawiczki","samolot","mysz","pszczola","morze","mleko","restauracja","koszula","kawa","kino","tunel","sklep","huśtawka","sól","hulajnoga","kotek","książka","drukarka","truskawka","telefon","ulica","tramwaj","klawiatura","kot","długopis","biblioteka","buty","herbata","las","jabłko","czosnek","przyjaciel","cukier","marchew","chleb","drzewo","szkoła","plac","ryba","rower","mrówka","piesek","masło","babcia","banan","samochód","brat","krzesło","gwiazda","sukienka","rzeka","most","mama","dziecko","tata","góra","słońce"];
+const WORDS = [
+"rekawiczki","samolot","mysz","pszczola","morze","mleko","restauracja","koszula",
+"kawa","kino","mrocza","sklep","hushtawka","sol","hulajnoga","kotek","ksiazka", 
+"drukarka","truskawka","telefon","ulica","tramwaj","klawiatura","kot","dlugopis",
+"biblioteka","buty","herbata","las","jablko","czosnek","przyjaciel","cukier","marchew",
+"chleb","drzewo","szkola","plac","ryba","rower","mrowka","piesek","maslo","babcia",
+"banan","samochod","brat","krzeslo","gwiazda","kasztan","rzeka","most","pioter", 
+"dziecko","lina","gora","slonce","pies","kotek","owoc","warzywo","jezioro","gory","droga","lampa","komputer","telefon","okno","drzwi","fotel","stol","krzeslo","torba","plecak","szalik","czapka", 
+"kapelusz","piwo","wino","sok","ciasto","lody","ogrod","kwiatek","drzewo","ptak", 
+"kon","koza","krowa","slon","tygrys","lew","lis","zebra","malina","borowka",
+"pomarancza","gruszka","grapefruit","winogrono","arbuz","melon","burak","seler","pomidor",
+"ogorek","papryka","cebula","czekolada","cukierki","herbata","kawa","sok","woda","lampa"
+];
 
 document.addEventListener('DOMContentLoaded', async () => {
     let params = new URLSearchParams(window.location.search);
