@@ -7,33 +7,11 @@
 <link rel="icon" type="image/png" href="pajak.webp">
 <title>SigmaGame Room</title>
 <style>
-    .chatroom p {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 5px 0;
-    }
-    .chatroom img {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-    }
-    .player-list {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        padding: 5px;
-    }
-    .player {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .player img {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-    }
+    .chatroom p { display:flex; align-items:center; gap:8px; margin:5px 0; }
+    .chatroom img { width:30px; height:30px; border-radius:50%; }
+    .player-list { display:flex; flex-direction:row; gap:10px; padding:5px; overflow-x:auto; border:1px solid rgba(0,0,0,0.2); border-radius:12px; background-color: rgba(255,255,255,0.1); align-items:center; height:60px; }
+    .player { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:50px; text-align:center; font-size:12px; }
+    .player img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
 </style>
 </head>
 <body>
@@ -54,7 +32,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, onValue, get, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+import { getDatabase, ref, onValue, update, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
@@ -71,98 +49,90 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const params = new URLSearchParams(window.location.search);
-  const roomID = params.get('roomID');
-  const username = params.get('username') || localStorage.getItem('username');
-  if (!roomID || !username) {
-    alert('Brak danych pokoju lub nazwy użytkownika');
-    return;
-  }
+    const params = new URLSearchParams(window.location.search);
+    const roomID = params.get('roomID');
+    const username = params.get('username') || localStorage.getItem('username');
 
-  const roomRef = ref(db, `rooms/${roomID}`);
-  document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
-
-  const chatroom = document.getElementById('chatroom');
-  const playerList = document.getElementById('playerList');
-  const messageInput = document.getElementById('message');
-  const sendBtn = document.getElementById('sendBtn');
-
-  // dołączenie do pokoju
-  try {
-    const snap = await get(roomRef);
-    if (!snap.exists()) {
-      alert('Pokój nie istnieje.');
-      window.location.href = 'index2.html';
-      return;
+    if (!roomID || !username) {
+        alert('Brak roomID lub username!');
+        return;
     }
-    const data = snap.val();
-    data.users = Array.isArray(data.users) ? data.users : [];
-    if (!data.users.includes(username)) data.users.push(username);
-    await update(roomRef, { users: data.users });
-  } catch (err) {
-    console.error('Błąd przy dołączaniu do pokoju:', err);
-  }
 
-  // nasłuchiwanie zmian w pokoju
-  onValue(roomRef, (snapshot) => {
-    if (!snapshot.exists()) {
-      chatroom.innerHTML = '<p>Room deleted (no players left).</p>';
-      playerList.innerHTML = '';
-      return;
+    document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
+
+    const roomRef = ref(db, `rooms/${roomID}`);
+    const usersRef = ref(db, `rooms/${roomID}/users`);
+    const chatroom = document.getElementById('chatroom');
+    const playerList = document.getElementById('playerList');
+    const messageInput = document.getElementById('message');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // Dodaj użytkownika jako klucz w users
+    await update(usersRef, { [username]: true });
+
+    // onDisconnect usuwa użytkownika przy wyjściu
+    onDisconnect(ref(db, `rooms/${roomID}/users/${username}`)).remove();
+
+    // Nasłuchiwanie zmian w pokoju
+    onValue(roomRef, snapshot => {
+        if (!snapshot.exists()) {
+            chatroom.innerHTML = '<p>Pokój został usunięty.</p>';
+            playerList.innerHTML = '';
+            return;
+        }
+
+        const data = snapshot.val();
+        const users = data.users || {};
+        const messages = data.messages || [];
+
+        // Lista graczy
+        playerList.innerHTML = Object.keys(users)
+            .map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`).join('');
+
+        // Czat
+        chatroom.innerHTML = Array.isArray(messages)
+            ? messages.map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('')
+            : Object.values(messages).map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('');
+
+        chatroom.scrollTop = chatroom.scrollHeight;
+
+        // Usuń pokój, jeśli nie ma graczy
+        if (Object.keys(users).length === 0) {
+            remove(roomRef);
+            console.log('Pokój usunięty, brak graczy.');
+        }
+    });
+
+    // Wysyłanie wiadomości
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        const snap = await get(roomRef);
+        const data = snap.exists() ? snap.val() : {};
+        data.messages = data.messages || [];
+
+        if (Array.isArray(data.messages)) {
+            data.messages.push({ user: username, text });
+        } else {
+            const key = Date.now();
+            data.messages[key] = { user: username, text };
+        }
+
+        await update(roomRef, { messages: data.messages });
+        messageInput.value = '';
     }
-    const data = snapshot.val();
-    const messages = Array.isArray(data.messages) ? data.messages : [];
-    const users = Array.isArray(data.users) ? data.users : [];
-    chatroom.innerHTML = messages.map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('');
-    playerList.innerHTML = users.map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`).join('');
-    chatroom.scrollTop = chatroom.scrollHeight;
-  });
-
-  // wysyłanie wiadomości
-  sendBtn.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
-
-  async function sendMessage() {
-    const text = messageInput.value.trim();
-    if (!text) return;
-    const snap = await get(roomRef);
-    if (!snap.exists()) return alert('Pokój został usunięty.');
-    const data = snap.val();
-    data.messages = Array.isArray(data.messages) ? data.messages : [];
-    data.messages.push({ user: username, text });
-    await update(roomRef, { messages: data.messages });
-    messageInput.value = '';
-  }
-
-  // usuwanie użytkownika po wyjściu i kasowanie pustego pokoju
-  window.addEventListener('beforeunload', async () => {
-    try {
-      const snap = await get(roomRef);
-      if (!snap.exists()) return;
-      const data = snap.val();
-      data.users = Array.isArray(data.users) ? data.users.filter(u => u !== username) : [];
-      if (data.users.length === 0) {
-        await remove(roomRef);
-        console.log(`Pokój ${roomID} usunięty (brak graczy).`);
-      } else {
-        await update(roomRef, { users: data.users });
-      }
-    } catch (err) {
-      console.error('Błąd przy wychodzeniu z pokoju:', err);
-    }
-  });
-
 });
 
-// zapobiega XSS
+// Funkcja XSS
 function escapeHtml(str = '') {
-  return String(str).replace(/[&<>"'`=\/]/g, s => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
-  }[s]));
+    return String(str).replace(/[&<>"'`=\/]/g, s => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
+    }[s]));
 }
 </script>
-
-
-
 </body>
 </html>

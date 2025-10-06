@@ -57,11 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.create').addEventListener('click', async () => {
     const roomID = generateRoomID();
     try {
-      await set(ref(db, `rooms/${roomID}`), { users: [username], messages: [] });
-      console.log('Created room', roomID);
+      await set(ref(db, `rooms/${roomID}`), { users: { [username]: true }, messages: [] });
       window.location.href = `room.html?roomID=${roomID}&username=${username}`;
     } catch (err) {
-      console.error('Error creating room:', err);
       alert('Błąd tworzenia pokoju: ' + (err.message || err));
     }
   });
@@ -71,8 +69,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-
-
-
 </body>
 </html>

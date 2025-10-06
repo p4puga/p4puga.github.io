@@ -26,7 +26,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+import { getDatabase, ref, get, update, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
@@ -50,25 +50,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.join').addEventListener('click', async () => {
     const roomID = document.getElementById('roomID').value.trim().toUpperCase();
     if (!roomID) return alert('Enter a Room ID!');
+
     try {
       const snap = await get(ref(db, `rooms/${roomID}`));
       if (!snap.exists()) {
         alert('Room not found!');
         return;
       }
-      const data = snap.val();
-      if (!Array.isArray(data.users)) data.users = [];
-      if (!data.users.includes(username)) data.users.push(username);
-      await update(ref(db, `rooms/${roomID}`), data);
-      console.log('Joined room', roomID);
+
+      // Dodanie użytkownika jako klucz w obiekcie
+      await update(ref(db, `rooms/${roomID}/users`), { [username]: true });
+
+      // Ustaw onDisconnect
+      onDisconnect(ref(db, `rooms/${roomID}/users/${username}`)).remove();
+
       window.location.href = `room.html?roomID=${roomID}&username=${username}`;
     } catch (err) {
-      console.error('Join error:', err);
       alert('Błąd podczas dołączania: ' + (err.message || err));
     }
   });
 });
 </script>
-
 </body>
 </html>
