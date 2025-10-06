@@ -5,19 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="style2.css">
 <title>SigmaGame Room</title>
-<style>
-    .chatroom p { display:flex; align-items:center; gap:8px; margin:5px 0; }
-    .player-list { display:flex; flex-direction:row; gap:10px; padding:5px; overflow-x:auto; border:1px solid rgba(0,0,0,0.2); border-radius:12px; background-color: rgba(255,255,255,0.1); align-items:center; height:60px; }
-    .player { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:50px; text-align:center; font-size:12px; }
-</style>
 </head>
 <body>
 <header><h1 id="roomHeader">SigmaGame</h1></header>
 <main>
 <section class="game">
-    <h2>Gracze</h2>
-    <div class="player-list" id="playerList"></div>
+    <div class="players-container">
+        <div class="players-box">
+            <h2>Gracze</h2>
+            <div class="player-list" id="playerList"></div>
+        </div>
+        <div class="points-box">
+            <h2>Punkty</h2>
+            <div class="points-list" id="pointsList"></div>
+        </div>
+    </div>
+    <div style="text-align:center; margin-top:20px;">
+        <button id="startGameBtn">START GAME</button>
+        <div id="impostorCardContainer"></div>
+    </div>
 </section>
+
 <section class="chat">
     <div class="Chatting"><p>Chat</p></div>
     <div class="chatroom" id="chatroom"></div>
@@ -45,110 +53,173 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+const WORDS = ["rękawiczki","samolot","mysz","pszczola","morze","mleko","restauracja","koszula","kawa","kino","tunel","sklep","huśtawka","sól","hulajnoga","kotek","książka","drukarka","truskawka","telefon","ulica","tramwaj","klawiatura","kot","długopis","biblioteka","buty","herbata","las","jabłko","czosnek","przyjaciel","cukier","marchew","chleb","drzewo","szkoła","plac","ryba","rower","mrówka","piesek","masło","babcia","banan","samochód","brat","krzesło","gwiazda","sukienka","rzeka","most","mama","dziecko","tata","góra","słońce"];
+
 document.addEventListener('DOMContentLoaded', async () => {
     let params = new URLSearchParams(window.location.search);
     let roomID = params.get('roomID');
     let username = params.get('username') || localStorage.getItem('username');
 
-    // --- Jeśli brak parametrów, pytamy użytkownika ---
-    if (!username) username = prompt("Podaj swój username:").trim();
-    if (!roomID) roomID = prompt("Podaj roomID:").trim();
-
-    if (!username || !roomID) {
-        alert("Musisz podać username i roomID!");
-        return;
-    }
+    if(!username) username = prompt("Podaj swój username:").trim();
+    if(!roomID) roomID = prompt("Podaj roomID:").trim();
+    if(!username || !roomID){ alert("Musisz podać username i roomID!"); return; }
 
     localStorage.setItem('username', username);
     document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
 
     const roomRef = ref(db, `rooms/${roomID}`);
     const usersRef = ref(db, `rooms/${roomID}/users`);
+    const gameRef = ref(db, `rooms/${roomID}/game`);
     const chatroom = document.getElementById('chatroom');
     const playerList = document.getElementById('playerList');
+    const pointsList = document.getElementById('pointsList');
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
+    const startBtn = document.getElementById('startGameBtn');
+    const impostorCardContainer = document.getElementById('impostorCardContainer');
 
     const HEARTBEAT_INTERVAL = 3000;
     const TIMEOUT = 10000;
 
-    // --- Dołączenie gracza do pokoju ---
-    await update(usersRef, { [username]: { lastActive: Date.now() } });
+    await update(usersRef,{ [username]: { lastActive: Date.now(), points:0 } });
 
-    // --- Funkcja opuszczenia pokoju ---
-    async function leaveRoom() {
-        const userRef = ref(db, `rooms/${roomID}/users/${username}`);
-        await remove(userRef);
+    async function leaveRoom(){
+        await remove(ref(db, `rooms/${roomID}/users/${username}`));
     }
     window.addEventListener('beforeunload', leaveRoom);
 
-    // --- Nasłuchiwanie zmian w pokoju ---
-    onValue(roomRef, async snapshot => {
-        if (!snapshot.exists()) {
-            chatroom.innerHTML = '<p>Pokój został usunięty.</p>';
-            playerList.innerHTML = '';
+    startBtn.addEventListener('click', async ()=>{
+        const gameSnap = await get(gameRef);
+        if(gameSnap.exists() && gameSnap.val().isActive){
+            alert("Gra już trwa! Nie można zacząć nowej rundy.");
             return;
         }
+        const usersSnap = await get(usersRef);
+        const users = Object.keys(usersSnap.val() || {});
+        if(users.length < 2){ alert("Potrzebnych minimum 2 graczy!"); return; }
 
+        const impostor = users[Math.floor(Math.random()*users.length)];
+        const word = WORDS[Math.floor(Math.random()*WORDS.length)];
+        await update(gameRef,{ isActive:true, impostor, word, votes:{} });
+        impostorCardContainer.innerHTML = '';
+    });
+
+    onValue(roomRef, async snapshot=>{
+        if(!snapshot.exists()){ chatroom.innerHTML='<p>Pokój został usunięty.</p>'; playerList.innerHTML=''; pointsList.innerHTML=''; return; }
         const data = snapshot.val();
         const usersObj = data.users || {};
         const messages = data.messages || [];
 
         const users = Object.keys(usersObj);
-        playerList.innerHTML = users.map(u =>
-            `<div class="player"><span>${escapeHtml(u)}</span></div>`
-        ).join('');
+        playerList.innerHTML = users.map(u=>`<div class="player">${u}</div>`).join('');
+        pointsList.innerHTML = users.map(u=>`<div class="points-item">${u} - ${usersObj[u]?.points||0}</div>`).join('');
 
-        chatroom.innerHTML = messages.map(msg =>
-            `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`
-        ).join('');
+        chatroom.innerHTML = messages.map(msg=>`<p><strong>${msg.user}:</strong> ${msg.text}</p>`).join('');
         chatroom.scrollTop = chatroom.scrollHeight;
 
-        // --- Usuwanie pokoju jeśli brak graczy ---
-        if (users.length === 0) {
-            await remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
+        if(data.game?.isActive){
+            if(!impostorCardContainer.innerHTML){
+                const isImpostor = (username === data.game.impostor);
+                const div = document.createElement('div');
+                div.className = 'impostor-card ' + (isImpostor?'red':'green');
+                div.innerHTML = isImpostor? 'JESTEŚ IMPOSTOREM':'Nie jesteś impostorem<br>Hasło to: '+data.game.word;
+                impostorCardContainer.appendChild(div);
+            }
+        } else {
+            impostorCardContainer.innerHTML='';
         }
     });
 
-    // --- Wysyłanie wiadomości ---
-    sendBtn.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
-
-    async function sendMessage() {
+    async function sendMessage(){
         const text = messageInput.value.trim();
-        if (!text) return;
-        const snap = await get(roomRef);
-        let data = snap.exists() ? snap.val() : {};
-        if (!data.messages) data.messages = [];
-        data.messages.push({ user: username, text });
-        await update(roomRef, { messages: data.messages });
-        messageInput.value = '';
+        if(!text) return;
+
+        const snapRoom = await get(roomRef);
+        let data = snapRoom.exists()?snapRoom.val():{};
+        if(!data.messages) data.messages=[];
+
+        const gameSnap = await get(gameRef);
+        const gameData = gameSnap.exists()?gameSnap.val():null;
+
+        // --- Vote ---
+        if(text.startsWith("/vote ")){
+            const voteName = text.split(" ")[1];
+            if(!gameData || !gameData.isActive) { messageInput.value=''; return; }
+
+            const votes = gameData.votes || {};
+            votes[voteName] = (votes[voteName]||0)+1;
+
+            const usersSnap = await get(usersRef);
+            const totalPlayers = Object.keys(usersSnap.val()||{}).length-1;
+
+            data.messages.push({user:'SYSTEM', text:`${username} zagłosował na ${voteName} (${votes[voteName]}/${totalPlayers})`});
+            await update(gameRef,{votes});
+
+            if(votes[voteName]>=totalPlayers){
+                const impostor = gameData.impostor;
+                const usersVal = usersSnap.val();
+                if(voteName===impostor){
+                    for(const u in usersVal){ if(u!==impostor) usersVal[u].points=(usersVal[u].points||0)+1; }
+                    data.messages.push({user:'SYSTEM', text:`${voteName} został zvotowany. Nie-impostorzy zdobywają 1 punkt.`});
+                } else {
+                    usersVal[impostor].points=(usersVal[impostor].points||0)+2;
+                    data.messages.push({user:'SYSTEM', text:`${voteName} został zvotowany błędnie. Impostor zdobywa 2 punkty.`});
+                }
+                await update(usersRef, usersVal);
+                await endRound(data.messages);
+            }
+
+            await update(roomRef,{messages:data.messages});
+            messageInput.value=''; 
+            return;
+        }
+
+        // --- Hasło przez impostora ---
+        if(gameData && gameData.isActive && username === gameData.impostor && text.toLowerCase() === gameData.word.toLowerCase()){
+            data.messages.push({user: username, text});
+            data.messages.push({user:'SYSTEM', text:`IMPOSTOR zgadł hasło! Runda kończy się.`});
+            const usersSnap = await get(usersRef);
+            const usersVal = usersSnap.val();
+            usersVal[username].points=(usersVal[username].points||0)+1;
+            await update(usersRef, usersVal);
+            await update(roomRef,{messages:data.messages});
+            await endRound(data.messages);
+            messageInput.value=''; 
+            return;
+        }
+
+        data.messages.push({user: username, text});
+        await update(roomRef,{messages:data.messages});
+        messageInput.value='';
     }
 
-    // --- Heartbeat co 3 sekundy ---
-    setInterval(async () => {
+    async function endRound(messages=[]){
+        await update(gameRef,{isActive:false});
+        impostorCardContainer.innerHTML='';
+        if(messages.length>0) await update(roomRef,{messages});
+    }
+
+    sendBtn.addEventListener('click',sendMessage);
+    messageInput.addEventListener('keypress',e=>{ if(e.key==='Enter') sendMessage(); });
+
+    setInterval(async ()=>{
         const now = Date.now();
-        const userRef = ref(db, `rooms/${roomID}/users/${username}`);
-        await update(userRef, { lastActive: now });
+        await update(ref(db, `rooms/${roomID}/users/${username}`), { lastActive: now });
 
         const snap = await get(usersRef);
-        if (!snap.exists()) return;
+        if(!snap.exists()) return;
         const usersObj = snap.val();
         const activeUsers = {};
-        for (const [user, info] of Object.entries(usersObj)) {
-            if (!info || !info.lastActive) continue;
-            if (now - info.lastActive < TIMEOUT) activeUsers[user] = info;
+        for(const [user, info] of Object.entries(usersObj)){
+            if(!info||!info.lastActive) continue;
+            if(now-info.lastActive<TIMEOUT) activeUsers[user]=info;
         }
-        await update(usersRef, activeUsers);
+        await update(usersRef,activeUsers);
     }, HEARTBEAT_INTERVAL);
+
 });
 
-// --- Ochrona przed XSS ---
-function escapeHtml(str = '') {
-    return String(str).replace(/[&<>"'`=\/]/g, s =>
-        ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","`":"&#96;","=":"&#61;","/":"&#47;"}[s])
-    );
-}
+function escapeHtml(str=''){ return String(str).replace(/[&<>"'`=\/]/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","`":"&#96;","=":"&#61;","/":"&#47;"}[s])); }
 </script>
 </body>
 </html>
