@@ -32,7 +32,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, onValue, update, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+import { getDatabase, ref, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
@@ -67,11 +67,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
 
-    // Dodaj użytkownika jako klucz w obiekcie
+    // Dodaj użytkownika do pokoju
     await update(usersRef, { [username]: true });
-
-    // onDisconnect usuwa użytkownika przy wyjściu
-    onDisconnect(ref(db, `rooms/${roomID}/users/${username}`)).remove();
 
     // Nasłuchiwanie zmian w pokoju
     onValue(roomRef, async snapshot => {
@@ -85,7 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const usersObj = data.users || {};
         const messages = data.messages || [];
 
-        // Filtrowanie prawdziwych graczy (ignorujemy '0' lub inne nieprawidłowe klucze)
         const users = Object.keys(usersObj).filter(u => u && u !== '0');
 
         // Wyświetlanie graczy
@@ -99,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ).join('');
         chatroom.scrollTop = chatroom.scrollHeight;
 
-        // Automatyczne usuwanie pokoju, jeśli nie ma graczy
+        // **Automatyczne usuwanie pokoju, jeśli nie ma graczy**
         if (users.length === 0) {
             remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
         }
@@ -120,13 +116,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         await update(roomRef, { messages: data.messages });
         messageInput.value = '';
     }
+
+    // Usuń gracza z listy przy zamknięciu zakładki
+    window.addEventListener('beforeunload', async () => {
+        await update(usersRef, { [username]: null });
+    });
 });
 
 // Funkcja ochrony przed XSS
 function escapeHtml(str = '') {
-    return String(str).replace(/[&<>"'`=\/]/g, s => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
-    }[s]));
+    return String(str).replace(/[&<>"'`=\/]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","`":"&#96;","=":"&#61;","/":"&#47;"}[s]));
 }
 </script>
 </body>
