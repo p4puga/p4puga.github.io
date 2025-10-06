@@ -94,11 +94,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`
         ).join('');
         chatroom.scrollTop = chatroom.scrollHeight;
-
-        // **Automatyczne usuwanie pokoju, jeśli nie ma graczy**
-        if (users.length === 0) {
-            remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
-        }
     });
 
     // Wysyłanie wiadomości
@@ -121,6 +116,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('beforeunload', async () => {
         await update(usersRef, { [username]: null });
     });
+
+    // **Sprawdzanie co 3 sekundy, czy pokój jest pusty**
+    setInterval(async () => {
+        const snap = await get(usersRef);
+        const users = snap.exists() ? Object.keys(snap.val()).filter(u => u && u !== '0') : [];
+        if (users.length === 0) {
+            remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
+        }
+    }, 3000);
 });
 
 // Funkcja ochrony przed XSS
