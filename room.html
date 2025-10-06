@@ -6,48 +6,22 @@
 <link rel="stylesheet" href="style2.css">
 <link rel="icon" type="image/png" href="pajak.webp">
 <title>SigmaGame Room</title>
-<style>
-    .chatroom p {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 5px 0;
-    }
-    .chatroom img {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-    }
-    .player-list {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        padding: 5px;
-    }
-    .player {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .player img {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-    }
-</style>
 </head>
 <body>
-<header><h1 id="roomHeader">SigmaGame</h1></header>
+<header>
+  <h1 id="roomHeader">SigmaGame</h1>
+  <img id="headerAvatar" alt="Avatar">
+</header>
 <main>
 <section class="game">
-    <h2>Gracze</h2>
-    <div class="player-list" id="playerList"></div>
+  <h2>Gracze</h2>
+  <div class="player-list" id="playerList"></div>
 </section>
 <section class="chat">
-    <div class="Chatting"><p>Chat</p></div>
-    <div class="chatroom" id="chatroom"></div>
-    <input type="text" id="message" placeholder="Type a message">
-    <button id="sendBtn">Send</button>
+  <div class="Chatting"><p>Chat</p></div>
+  <div class="chatroom" id="chatroom"></div>
+  <input type="text" id="message" placeholder="Type a message">
+  <button id="sendBtn">Send</button>
 </section>
 </main>
 <footer><p>©2025 SigmaGame BETA</p></footer>
@@ -74,33 +48,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const roomID = params.get('roomID');
   const username = params.get('username') || localStorage.getItem('username');
+  const avatar = localStorage.getItem('avatar');
 
   if (!roomID) {
     alert('Brak roomID w URL');
     return;
   }
+
   document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
+  document.getElementById('headerAvatar').src = avatar;
 
   const chatroom = document.getElementById('chatroom');
   const playerList = document.getElementById('playerList');
   const messageInput = document.getElementById('message');
   const sendBtn = document.getElementById('sendBtn');
 
-  // realtime
   onValue(ref(db, `rooms/${roomID}`), (snapshot) => {
-    if (!snapshot.exists()) {
-      console.warn('Room not found on DB (maybe deleted)', roomID);
-      chatroom.innerHTML = '<p>Room not found.</p>';
-      playerList.innerHTML = '';
-      return;
-    }
+    if (!snapshot.exists()) return;
     const data = snapshot.val();
+
+    const users = Array.isArray(data.users) ? data.users : [];
+    playerList.innerHTML = users.map(u =>
+      `<div class="player">
+        <img src="${escapeHtml(u.avatar)}" alt="A">
+        <span>${escapeHtml(u.name)}</span>
+      </div>`
+    ).join('');
+
     const messages = Array.isArray(data.messages) ? data.messages : [];
-    chatroom.innerHTML = messages.map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('');
-    playerList.innerHTML = (Array.isArray(data.users) ? data.users : []).map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`).join('');
+    chatroom.innerHTML = messages.map(msg =>
+      `<p>
+        <img src="${escapeHtml(msg.avatar)}" alt="">
+        <strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}
+      </p>`
+    ).join('');
     chatroom.scrollTop = chatroom.scrollHeight;
-  }, (err) => {
-    console.error('onValue error:', err);
   });
 
   sendBtn.addEventListener('click', sendMessage);
@@ -109,32 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
   async function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
-    try {
-      const snap = await get(ref(db, `rooms/${roomID}`));
-      if (!snap.exists()) {
-        alert('Room not found (DB).');
-        return;
-      }
-      const data = snap.val();
-      if (!Array.isArray(data.messages)) data.messages = [];
-      data.messages.push({ user: username, text });
-      await update(ref(db, `rooms/${roomID}`), data);
-      messageInput.value = '';
-    } catch (err) {
-      console.error('sendMessage error:', err);
-      alert('Błąd wysyłania wiadomości: ' + (err.message || err));
-    }
+    const snap = await get(ref(db, `rooms/${roomID}`));
+    if (!snap.exists()) return;
+    const data = snap.val();
+    if (!Array.isArray(data.messages)) data.messages = [];
+    data.messages.push({ user: username, avatar, text });
+    await update(ref(db, `rooms/${roomID}`), data);
+    messageInput.value = '';
   }
 });
 
-// mała funkcja do ochrony przed XSS w czacie
 function escapeHtml(str = '') {
   return String(str).replace(/[&<>"'`=\/]/g, s => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
   }[s]));
 }
 </script>
-
-
 </body>
 </html>

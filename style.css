@@ -89,3 +89,19 @@ input:not(:placeholder-shown) + label {
     cursor: pointer;
     text-align: center;
 }
+
+header {
+    position: relative;
+}
+#headerAvatar {
+    position: absolute;
+    right: 20px;
+    top: 5px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
+}
+
+
