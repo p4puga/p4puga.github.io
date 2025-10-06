@@ -8,10 +8,7 @@
 <title>SigmaGame</title>
 </head>
 <body>
-<header>
-    <h1 id="header">SigmaGame - {Username}</h1>
-    <img id="headerAvatar" alt="Avatar" />
-</header>
+<header><h1 id="header">SigmaGame - {Username}</h1></header>
 <main>
 <div class="actions">
     <section class="username">
@@ -47,30 +44,31 @@ const db = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', () => {
   const header = document.getElementById('header');
-  const avatarImg = document.getElementById('headerAvatar');
   const username = localStorage.getItem('username');
-  const avatar = localStorage.getItem('avatar');
-
   header.textContent = `SigmaGame - ${username || '{Username}'}`;
-  if (avatar) avatarImg.src = avatar;
 
   document.querySelector('.join').addEventListener('click', async () => {
     const roomID = document.getElementById('roomID').value.trim().toUpperCase();
     if (!roomID) return alert('Enter a Room ID!');
     try {
       const snap = await get(ref(db, `rooms/${roomID}`));
-      if (!snap.exists()) return alert('Room not found!');
+      if (!snap.exists()) {
+        alert('Room not found!');
+        return;
+      }
       const data = snap.val();
       if (!Array.isArray(data.users)) data.users = [];
-      if (!data.users.some(u => u.name === username))
-        data.users.push({ name: username, avatar });
+      if (!data.users.includes(username)) data.users.push(username);
       await update(ref(db, `rooms/${roomID}`), data);
+      console.log('Joined room', roomID);
       window.location.href = `room.html?roomID=${roomID}&username=${username}`;
     } catch (err) {
-      alert('Błąd podczas dołączania: ' + err.message);
+      console.error('Join error:', err);
+      alert('Błąd podczas dołączania: ' + (err.message || err));
     }
   });
 });
 </script>
+
 </body>
 </html>

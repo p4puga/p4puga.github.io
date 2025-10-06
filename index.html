@@ -12,80 +12,26 @@
 <main>
 <div class="actions">
     <section class="username">
-        <div class="input-group small">
+        <div class="input-group">
             <input type="text" id="username" placeholder=" " required />
             <label for="username">Username</label>
         </div>
     </section>
-
-    <section class="avatar">
-        <div class="input-group">
-            <input type="file" id="avatar" accept="image/*" required />
-            <label for="avatar" id="avatarLabel">Dodaj własne zdjęcie</label>
-            <img id="preview" alt="Podgląd" style="display:none;" />
-        </div>
-    </section>
-
-    <section class="play" style="cursor:pointer; background:#444; color:white; padding:10px; text-align:center; border-radius:10px;">PLAY</section>
+    <section class="play">PLAY</section>
 </div>
 </main>
-<footer><p>©2025 SigmaGame BETA</p></footer>
+<footer>
+<p>©2025 SigmaGame BETA</p>
+</footer>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
-  authDomain: "sigmagame-9858a.firebaseapp.com",
-  projectId: "sigmagame-9858a",
-  storageBucket: "sigmagame-9858a.appspot.com",
-  messagingSenderId: "305980813593",
-  appId: "1:305980813593:web:ed25bd118d2b29ba595588",
-  databaseURL: "https://sigmagame-9858a-default-rtdb.europe-west1.firebasedatabase.app/"
-};
-
-const app = initializeApp(firebaseConfig);
-const storage = getStorage(app);
-
-const avatarInput = document.getElementById('avatar');
-const preview = document.getElementById('preview');
-const playButton = document.querySelector('.play');
-
-avatarInput.addEventListener('change', () => {
-  const file = avatarInput.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      preview.src = e.target.result;
-      preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-  }
-});
-
-playButton.addEventListener('click', async () => {
-  console.log('PLAY clicked');
-  const username = document.getElementById('username').value.trim();
-  const file = avatarInput.files[0];
-  if (!username) return alert('Wpisz nazwę użytkownika!');
-  if (!file) return alert('Dodaj swoje zdjęcie!');
-
-  try {
-    const storageRef = sRef(storage, `avatars/${username}-${Date.now()}.png`);
-    console.log('Uploading file to storage...');
-    await uploadBytes(storageRef, file);
-    console.log('Upload complete!');
-    const url = await getDownloadURL(storageRef);
-    console.log('Got download URL:', url);
-
+<script>
+document.querySelector('.play').addEventListener('click', () => {
+    const username = document.getElementById('username').value.trim();
+    if(!username) return alert('Enter a username!');
+    // zapis username w localStorage
     localStorage.setItem('username', username);
-    localStorage.setItem('avatar', url);
+    // przejście do index.html
     window.location.href = 'index2.html';
-  } catch (err) {
-    console.error('Błąd:', err);
-    alert('Błąd przy przesyłaniu zdjęcia: ' + err.message);
-  }
 });
 </script>
 </body>

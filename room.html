@@ -6,29 +6,55 @@
 <link rel="stylesheet" href="style2.css">
 <link rel="icon" type="image/png" href="pajak.webp">
 <title>SigmaGame Room</title>
+<style>
+    .chatroom p {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 5px 0;
+    }
+    .chatroom img {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+    }
+    .player-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 5px;
+    }
+    .player {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .player img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+    }
+</style>
 </head>
 <body>
-<header>
-  <h1 id="roomHeader">SigmaGame</h1>
-  <img id="headerAvatar" alt="Avatar">
-</header>
+<header><h1 id="roomHeader">SigmaGame</h1></header>
 <main>
 <section class="game">
-  <h2>Gracze</h2>
-  <div class="player-list" id="playerList"></div>
+    <h2>Gracze</h2>
+    <div class="player-list" id="playerList"></div>
 </section>
 <section class="chat">
-  <div class="Chatting"><p>Chat</p></div>
-  <div class="chatroom" id="chatroom"></div>
-  <input type="text" id="message" placeholder="Type a message">
-  <button id="sendBtn">Send</button>
+    <div class="Chatting"><p>Chat</p></div>
+    <div class="chatroom" id="chatroom"></div>
+    <input type="text" id="message" placeholder="Type a message">
+    <button id="sendBtn">Send</button>
 </section>
 </main>
 <footer><p>©2025 SigmaGame BETA</p></footer>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+import { getDatabase, ref, onValue, get, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgc1Vn0WDPT9a6xZr_t_Qni8NdiH5EejE",
@@ -44,68 +70,99 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
   const roomID = params.get('roomID');
   const username = params.get('username') || localStorage.getItem('username');
-  const avatar = localStorage.getItem('avatar');
-
-  if (!roomID) {
-    alert('Brak roomID w URL');
+  if (!roomID || !username) {
+    alert('Brak danych pokoju lub nazwy użytkownika');
     return;
   }
 
+  const roomRef = ref(db, `rooms/${roomID}`);
   document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
-  document.getElementById('headerAvatar').src = avatar;
 
   const chatroom = document.getElementById('chatroom');
   const playerList = document.getElementById('playerList');
   const messageInput = document.getElementById('message');
   const sendBtn = document.getElementById('sendBtn');
 
-  onValue(ref(db, `rooms/${roomID}`), (snapshot) => {
-    if (!snapshot.exists()) return;
+  // dołączenie do pokoju
+  try {
+    const snap = await get(roomRef);
+    if (!snap.exists()) {
+      alert('Pokój nie istnieje.');
+      window.location.href = 'index2.html';
+      return;
+    }
+    const data = snap.val();
+    data.users = Array.isArray(data.users) ? data.users : [];
+    if (!data.users.includes(username)) data.users.push(username);
+    await update(roomRef, { users: data.users });
+  } catch (err) {
+    console.error('Błąd przy dołączaniu do pokoju:', err);
+  }
+
+  // nasłuchiwanie zmian w pokoju
+  onValue(roomRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      chatroom.innerHTML = '<p>Room deleted (no players left).</p>';
+      playerList.innerHTML = '';
+      return;
+    }
     const data = snapshot.val();
-
-    const users = Array.isArray(data.users) ? data.users : [];
-    playerList.innerHTML = users.map(u =>
-      `<div class="player">
-        <img src="${escapeHtml(u.avatar)}" alt="A">
-        <span>${escapeHtml(u.name)}</span>
-      </div>`
-    ).join('');
-
     const messages = Array.isArray(data.messages) ? data.messages : [];
-    chatroom.innerHTML = messages.map(msg =>
-      `<p>
-        <img src="${escapeHtml(msg.avatar)}" alt="">
-        <strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}
-      </p>`
-    ).join('');
+    const users = Array.isArray(data.users) ? data.users : [];
+    chatroom.innerHTML = messages.map(msg => `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`).join('');
+    playerList.innerHTML = users.map(u => `<div class="player"><span>${escapeHtml(u)}</span></div>`).join('');
     chatroom.scrollTop = chatroom.scrollHeight;
   });
 
+  // wysyłanie wiadomości
   sendBtn.addEventListener('click', sendMessage);
   messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
 
   async function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
-    const snap = await get(ref(db, `rooms/${roomID}`));
-    if (!snap.exists()) return;
+    const snap = await get(roomRef);
+    if (!snap.exists()) return alert('Pokój został usunięty.');
     const data = snap.val();
-    if (!Array.isArray(data.messages)) data.messages = [];
-    data.messages.push({ user: username, avatar, text });
-    await update(ref(db, `rooms/${roomID}`), data);
+    data.messages = Array.isArray(data.messages) ? data.messages : [];
+    data.messages.push({ user: username, text });
+    await update(roomRef, { messages: data.messages });
     messageInput.value = '';
   }
+
+  // usuwanie użytkownika po wyjściu i kasowanie pustego pokoju
+  window.addEventListener('beforeunload', async () => {
+    try {
+      const snap = await get(roomRef);
+      if (!snap.exists()) return;
+      const data = snap.val();
+      data.users = Array.isArray(data.users) ? data.users.filter(u => u !== username) : [];
+      if (data.users.length === 0) {
+        await remove(roomRef);
+        console.log(`Pokój ${roomID} usunięty (brak graczy).`);
+      } else {
+        await update(roomRef, { users: data.users });
+      }
+    } catch (err) {
+      console.error('Błąd przy wychodzeniu z pokoju:', err);
+    }
+  });
+
 });
 
+// zapobiega XSS
 function escapeHtml(str = '') {
   return String(str).replace(/[&<>"'`=\/]/g, s => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'
   }[s]));
 }
 </script>
+
+
+
 </body>
 </html>

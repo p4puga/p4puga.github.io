@@ -8,10 +8,7 @@
 <title>SigmaGame</title>
 </head>
 <body>
-<header>
-    <h1 id="header">SigmaGame - {Username}</h1>
-    <img id="headerAvatar" alt="Avatar" />
-</header>
+<header><h1 id="header">SigmaGame - {Username}</h1></header>
 <main>
     <section class="create">Create room</section>
     <section class="join">Join room</section>
@@ -41,32 +38,32 @@ const db = getDatabase(app);
 function generateRoomID() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let id = '';
-  for (let i = 0; i < 5; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 5; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   return id;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   const header = document.getElementById('header');
-  const avatarImg = document.getElementById('headerAvatar');
   const username = localStorage.getItem('username');
-  const avatar = localStorage.getItem('avatar');
-
-  if (!username || !avatar) {
-    alert('Brak danych użytkownika. Wróć do index.html i uzupełnij dane.');
+  if (!username) {
+    alert('Brak username w localStorage. Wróć do index.html i ustaw nick.');
     window.location.href = 'index.html';
     return;
   }
-
   header.textContent = `SigmaGame - ${username}`;
-  avatarImg.src = avatar;
 
   document.querySelector('.create').addEventListener('click', async () => {
     const roomID = generateRoomID();
-    await set(ref(db, `rooms/${roomID}`), {
-      users: [{ name: username, avatar }],
-      messages: []
-    });
-    window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+    try {
+      await set(ref(db, `rooms/${roomID}`), { users: [username], messages: [] });
+      console.log('Created room', roomID);
+      window.location.href = `room.html?roomID=${roomID}&username=${username}`;
+    } catch (err) {
+      console.error('Error creating room:', err);
+      alert('Błąd tworzenia pokoju: ' + (err.message || err));
+    }
   });
 
   document.querySelector('.join').addEventListener('click', () => {
@@ -74,5 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
+
+
 </body>
 </html>
