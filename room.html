@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="style2.css">
-<link rel="icon" type="image/png" href="pajak.webp">
 <title>SigmaGame Room</title>
 <style>
     .chatroom p { display:flex; align-items:center; gap:8px; margin:5px 0; }
@@ -47,15 +46,20 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const params = new URLSearchParams(window.location.search);
-    const roomID = params.get('roomID');
-    const username = params.get('username') || localStorage.getItem('username');
+    let params = new URLSearchParams(window.location.search);
+    let roomID = params.get('roomID');
+    let username = params.get('username') || localStorage.getItem('username');
 
-    if (!roomID || !username) {
-        alert('Brak roomID lub username!');
+    // --- Jeśli brak parametrów, pytamy użytkownika ---
+    if (!username) username = prompt("Podaj swój username:").trim();
+    if (!roomID) roomID = prompt("Podaj roomID:").trim();
+
+    if (!username || !roomID) {
+        alert("Musisz podać username i roomID!");
         return;
     }
 
+    localStorage.setItem('username', username);
     document.getElementById('roomHeader').textContent = `SigmaGame - ${roomID}`;
 
     const roomRef = ref(db, `rooms/${roomID}`);
@@ -76,10 +80,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userRef = ref(db, `rooms/${roomID}/users/${username}`);
         await remove(userRef);
     }
-
     window.addEventListener('beforeunload', leaveRoom);
 
-    // --- Nasłuchiwanie zmian w pokoju i automatyczne usuwanie pokoju ---
+    // --- Nasłuchiwanie zmian w pokoju ---
     onValue(roomRef, async snapshot => {
         if (!snapshot.exists()) {
             chatroom.innerHTML = '<p>Pokój został usunięty.</p>';
@@ -91,13 +94,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const usersObj = data.users || {};
         const messages = data.messages || [];
 
-        // --- Aktualizacja listy graczy ---
         const users = Object.keys(usersObj);
         playerList.innerHTML = users.map(u =>
             `<div class="player"><span>${escapeHtml(u)}</span></div>`
         ).join('');
 
-        // --- Aktualizacja wiadomości ---
         chatroom.innerHTML = messages.map(msg =>
             `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`
         ).join('');
@@ -116,7 +117,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
-
         const snap = await get(roomRef);
         let data = snap.exists() ? snap.val() : {};
         if (!data.messages) data.messages = [];
@@ -135,22 +135,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!snap.exists()) return;
         const usersObj = snap.val();
         const activeUsers = {};
-
         for (const [user, info] of Object.entries(usersObj)) {
             if (!info || !info.lastActive) continue;
-            if (now - info.lastActive < TIMEOUT) {
-                activeUsers[user] = info;
-            }
+            if (now - info.lastActive < TIMEOUT) activeUsers[user] = info;
         }
-
         await update(usersRef, activeUsers);
     }, HEARTBEAT_INTERVAL);
-
 });
 
 // --- Ochrona przed XSS ---
 function escapeHtml(str = '') {
-    return String(str).replace(/[&<>"'`=\/]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","`":"&#96;","=":"&#61;","/":"&#47;"}[s]));
+    return String(str).replace(/[&<>"'`=\/]/g, s =>
+        ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","`":"&#96;","=":"&#61;","/":"&#47;"}[s])
+    );
 }
 </script>
 </body>
