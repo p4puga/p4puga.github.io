@@ -8,10 +8,8 @@
 <title>SigmaGame Room</title>
 <style>
     .chatroom p { display:flex; align-items:center; gap:8px; margin:5px 0; }
-    .chatroom img { width:30px; height:30px; border-radius:50%; }
     .player-list { display:flex; flex-direction:row; gap:10px; padding:5px; overflow-x:auto; border:1px solid rgba(0,0,0,0.2); border-radius:12px; background-color: rgba(255,255,255,0.1); align-items:center; height:60px; }
     .player { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:50px; text-align:center; font-size:12px; }
-    .player img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
 </style>
 </head>
 <body>
@@ -67,10 +65,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
 
-    // Dodaj użytkownika do pokoju
-    await update(usersRef, { [username]: true });
+    const HEARTBEAT_INTERVAL = 3000;
+    const TIMEOUT = 10000;
 
-    // Nasłuchiwanie zmian w pokoju
+    // --- Dołączenie gracza do pokoju ---
+    await update(usersRef, { [username]: { lastActive: Date.now() } });
+
+    // --- Funkcja opuszczenia pokoju ---
+    async function leaveRoom() {
+        const userRef = ref(db, `rooms/${roomID}/users/${username}`);
+        await remove(userRef);
+    }
+
+    window.addEventListener('beforeunload', leaveRoom);
+
+    // --- Nasłuchiwanie zmian w pokoju i automatyczne usuwanie pokoju ---
     onValue(roomRef, async snapshot => {
         if (!snapshot.exists()) {
             chatroom.innerHTML = '<p>Pokój został usunięty.</p>';
@@ -78,56 +87,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const data = snapshot.val() || {};
+        const data = snapshot.val();
         const usersObj = data.users || {};
         const messages = data.messages || [];
 
-        const users = Object.keys(usersObj).filter(u => u && u !== '0');
-
-        // Wyświetlanie graczy
+        // --- Aktualizacja listy graczy ---
+        const users = Object.keys(usersObj);
         playerList.innerHTML = users.map(u =>
             `<div class="player"><span>${escapeHtml(u)}</span></div>`
         ).join('');
 
-        // Wyświetlanie wiadomości
+        // --- Aktualizacja wiadomości ---
         chatroom.innerHTML = messages.map(msg =>
             `<p><strong>${escapeHtml(msg.user)}:</strong> ${escapeHtml(msg.text)}</p>`
         ).join('');
         chatroom.scrollTop = chatroom.scrollHeight;
+
+        // --- Usuwanie pokoju jeśli brak graczy ---
+        if (users.length === 0) {
+            await remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
+        }
     });
 
-    // Wysyłanie wiadomości
+    // --- Wysyłanie wiadomości ---
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
 
     async function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
+
         const snap = await get(roomRef);
-        if (!snap.exists()) return;
-        const data = snap.val();
+        let data = snap.exists() ? snap.val() : {};
         if (!data.messages) data.messages = [];
         data.messages.push({ user: username, text });
         await update(roomRef, { messages: data.messages });
         messageInput.value = '';
     }
 
-    // Usuń gracza z listy przy zamknięciu zakładki
-    window.addEventListener('beforeunload', async () => {
-        await update(usersRef, { [username]: null });
-    });
-
-    // **Sprawdzanie co 3 sekundy, czy pokój jest pusty**
+    // --- Heartbeat co 3 sekundy ---
     setInterval(async () => {
+        const now = Date.now();
+        const userRef = ref(db, `rooms/${roomID}/users/${username}`);
+        await update(userRef, { lastActive: now });
+
         const snap = await get(usersRef);
-        const users = snap.exists() ? Object.keys(snap.val()).filter(u => u && u !== '0') : [];
-        if (users.length === 0) {
-            remove(roomRef).catch(err => console.error('Błąd usuwania pokoju:', err));
+        if (!snap.exists()) return;
+        const usersObj = snap.val();
+        const activeUsers = {};
+
+        for (const [user, info] of Object.entries(usersObj)) {
+            if (!info || !info.lastActive) continue;
+            if (now - info.lastActive < TIMEOUT) {
+                activeUsers[user] = info;
+            }
         }
-    }, 3000);
+
+        await update(usersRef, activeUsers);
+    }, HEARTBEAT_INTERVAL);
+
 });
 
-// Funkcja ochrony przed XSS
+// --- Ochrona przed XSS ---
 function escapeHtml(str = '') {
     return String(str).replace(/[&<>"'`=\/]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","`":"&#96;","=":"&#61;","/":"&#47;"}[s]));
 }
